@@ -1,0 +1,10 @@
+[package]
+name = "skyx_amm"
+version = "0.0.1"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "devnet" }
+
+[addresses]
+skyx_amm = "0x9ce015ec14625d2285ed41cb1b4e5621a23c0abc0509a5195dbbccce95f581ce"
