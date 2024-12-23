@@ -76,9 +76,9 @@ module skyx_amm::pair {
     ) {
         let x_fee = amount_x_in * pair.fee_rate / 10000;
         let y_fee = amount_y_in * pair.fee_rate / 10000;
-        let total_supply = total_lp_supply<T0, T1>(pair);
-        let added_x_fee_for_creator = x_fee * pair.creator_liquidity / total_supply;
-        let added_y_fee_for_creator = y_fee * pair.creator_liquidity / total_supply;
+        let total_supply = total_lp_supply<T0, T1>(pair) as u128;
+        let added_x_fee_for_creator = (((x_fee as u128) * (pair.creator_liquidity as u128)) / total_supply) as u64;
+        let added_y_fee_for_creator = (((y_fee as u128) * (pair.creator_liquidity as u128)) / total_supply) as u64;
         pair.acc_x_fee_for_creator = pair.acc_x_fee_for_creator + added_x_fee_for_creator;
         pair.acc_y_fee_for_creator = pair.acc_y_fee_for_creator + added_y_fee_for_creator;
 
