@@ -7,4 +7,4 @@ edition = "2024.beta"
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "devnet" }
 
 [addresses]
-skyx_amm = "0xd18c042f9720a1ff01d73f666a85385b8e41108a21b95be6c5e87a2e85b4b221"
+skyx_amm = "0x6fc4c0e3295a7be697e2b9bf083312e59e5a5a6b860b03c2bf7a0a46ef978d3c"

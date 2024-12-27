@@ -34,6 +34,7 @@ module skyx_amm::pair {
     
     public struct LiquidityAdded has copy, drop {
         user: address,
+        pair: ID, 
         coin_x: string::String,
         coin_y: string::String,
         amount_x: u64,
@@ -44,6 +45,7 @@ module skyx_amm::pair {
     
     public struct LiquidityRemoved has copy, drop {
         user: address,
+        pair: ID,
         coin_x: string::String,
         coin_y: string::String,
         amount_x: u64,
@@ -54,6 +56,7 @@ module skyx_amm::pair {
     
     public struct Swapped has copy, drop {
         user: address,
+        pair: ID,
         coin_x: string::String,
         coin_y: string::String,
         amount_x_in: u64,
@@ -63,6 +66,7 @@ module skyx_amm::pair {
     }
     
     public struct FeeForCreatorAdded has copy, drop {
+        pair: ID,
         coin_x: string::String,
         coin_y: string::String,
         added_x_fee_for_creator: u64,
@@ -83,6 +87,7 @@ module skyx_amm::pair {
         pair.acc_y_fee_for_creator = pair.acc_y_fee_for_creator + added_y_fee_for_creator;
 
         let add_fee_for_creator_event = FeeForCreatorAdded{
+            pair: pair.pair_id(),
             coin_x: skyx_amm::type_helper::get_type_name<T0>(),
             coin_y: skyx_amm::type_helper::get_type_name<T1>(),
             added_x_fee_for_creator: added_x_fee_for_creator,
@@ -115,6 +120,7 @@ module skyx_amm::pair {
         
         let swap_event = Swapped{
             user         : ctx.sender(), 
+            pair         : pair.pair_id(),
             coin_x       : skyx_amm::type_helper::get_type_name<T0>(), 
             coin_y       : skyx_amm::type_helper::get_type_name<T1>(), 
             amount_x_in  : amount_x_in, 
@@ -142,6 +148,7 @@ module skyx_amm::pair {
         update_k_last<T0, T1>(pair);
         let liquidity_removed_event = LiquidityRemoved{
             user      : ctx.sender(), 
+            pair      : pair.pair_id(),
             coin_x    : skyx_amm::type_helper::get_type_name<T0>(), 
             coin_y    : skyx_amm::type_helper::get_type_name<T1>(), 
             amount_x  : amount_x, 
@@ -157,9 +164,9 @@ module skyx_amm::pair {
         pair.lp_supply.decrease_supply<LP<T0, T1>>(lp_token.into_balance<LP<T0, T1>>());
     }
     
-    public(package) fun create_pair<T0, T1>(ctx: &mut tx_context::TxContext) : PairMetadata<T0, T1> {
+    public(package) fun create_pair<T0, T1>(ctx: &mut tx_context::TxContext) : (ID, PairMetadata<T0, T1>) {
         let lp_token = LP<T0, T1>{dummy_field: false};
-        PairMetadata<T0, T1>{
+        let pair_metadata = PairMetadata<T0, T1>{
             id        : object::new(ctx), 
             reserve_x : coin::zero<T0>(ctx), 
             reserve_y : coin::zero<T1>(ctx), 
@@ -169,7 +176,8 @@ module skyx_amm::pair {
             acc_x_fee_for_creator: 0,
             acc_y_fee_for_creator: 0,
             fee_rate  : 0,
-        }
+        };
+        (object::id(&pair_metadata), pair_metadata)
     }
     
     fun deposit_x<T0, T1>(pair: &mut PairMetadata<T0, T1>, coin_x_in: coin::Coin<T0>) {
@@ -190,6 +198,10 @@ module skyx_amm::pair {
     
     public fun fee_rate<T0, T1>(pair: &PairMetadata<T0, T1>) : u64 {
         pair.fee_rate
+    }
+    
+    public fun pair_id<T0, T1>(pair: &PairMetadata<T0, T1>) : ID {
+        object::id(pair)
     }
     
     public fun get_lp_name<T0, T1>() : string::String {
@@ -238,6 +250,7 @@ module skyx_amm::pair {
         if (total_supply == 0) pair.creator_liquidity = liquidity;
         let liquidity_added_event = LiquidityAdded{
             user      : ctx.sender(), 
+            pair      : pair.pair_id(),
             coin_x    : skyx_amm::type_helper::get_type_name<T0>(), 
             coin_y    : skyx_amm::type_helper::get_type_name<T1>(), 
             amount_x  : amount_x, 

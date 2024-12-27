@@ -20,33 +20,36 @@ module skyx_amm::factory {
     
     public struct PairCreated has copy, drop {
         user: address,
-        pair: string::String,
+        pair: ID,
         coin_x: string::String,
         coin_y: string::String,
     }
     
     public struct FeeChanged has copy, drop {
         user: address,
+        pair: ID,
         coin_x: string::String,
         coin_y: string::String,
         fee_rate: u64,
     }
     
     public fun create_pair<T0, T1>(cont: &mut Container, ctx: &mut tx_context::TxContext) {
-        let pair = if (skyx_amm::swap_utils::is_ordered<T0, T1>()) {
+        let pair_id = if (skyx_amm::swap_utils::is_ordered<T0, T1>()) {
             let _pair = skyx_amm::pair::get_lp_name<T0, T1>();
             assert!(!cont.pairs.contains_with_type<string::String, skyx_amm::pair::PairMetadata<T0, T1>>(_pair), ERR_ALREADY_EXIST_PAIR);
-            cont.pairs.add<string::String, skyx_amm::pair::PairMetadata<T0, T1>>(_pair, skyx_amm::pair::create_pair<T0, T1>(ctx));
-            _pair
+            let (_pair_id, _pair_metadata) = skyx_amm::pair::create_pair<T0, T1>(ctx);
+            cont.pairs.add<string::String, skyx_amm::pair::PairMetadata<T0, T1>>(_pair, _pair_metadata);
+            _pair_id
         } else {
             let _pair = skyx_amm::pair::get_lp_name<T1, T0>();
             assert!(!cont.pairs.contains_with_type<string::String, skyx_amm::pair::PairMetadata<T1, T0>>(_pair), ERR_ALREADY_EXIST_PAIR);
-            cont.pairs.add<string::String, skyx_amm::pair::PairMetadata<T1, T0>>(_pair, skyx_amm::pair::create_pair<T1, T0>(ctx));
-            _pair
+            let (_pair_id, _pair_metadata) = skyx_amm::pair::create_pair<T1, T0>(ctx);
+            cont.pairs.add<string::String, skyx_amm::pair::PairMetadata<T1, T0>>(_pair, _pair_metadata);
+            _pair_id
         };
         let pair_created_event = PairCreated{
             user   : ctx.sender(), 
-            pair   : pair, 
+            pair   : pair_id, 
             coin_x : skyx_amm::type_helper::get_type_name<T0>(), 
             coin_y : skyx_amm::type_helper::get_type_name<T1>(),
         };
@@ -94,13 +97,18 @@ module skyx_amm::factory {
     }
     
     fun set_fee_rate_<T0, T1>(cont: &mut Container, fee_rate: u64, ctx: &tx_context::TxContext) {
-        if (skyx_amm::swap_utils::is_ordered<T0, T1>()) {
-            skyx_amm::pair::set_fee_rate<T0, T1>(&mut cont.pairs[skyx_amm::pair::get_lp_name<T0, T1>()], fee_rate);
+        let pair_id = if (skyx_amm::swap_utils::is_ordered<T0, T1>()) {
+            let _pair_metadata: &mut skyx_amm::pair::PairMetadata<T0, T1> = &mut cont.pairs[skyx_amm::pair::get_lp_name<T0, T1>()];
+            skyx_amm::pair::set_fee_rate<T0, T1>(_pair_metadata, fee_rate);
+            _pair_metadata.pair_id()
         } else {
-            skyx_amm::pair::set_fee_rate<T1, T0>(&mut cont.pairs[skyx_amm::pair::get_lp_name<T1, T0>()], fee_rate);
+            let _pair_metadata: &mut skyx_amm::pair::PairMetadata<T1, T0> = &mut cont.pairs[skyx_amm::pair::get_lp_name<T1, T0>()];
+            skyx_amm::pair::set_fee_rate<T1, T0>(_pair_metadata, fee_rate);
+            _pair_metadata.pair_id()
         };
         let fee_changed_event = FeeChanged{
             user     : ctx.sender(), 
+            pair     : pair_id, 
             coin_x   : skyx_amm::type_helper::get_type_name<T0>(), 
             coin_y   : skyx_amm::type_helper::get_type_name<T1>(), 
             fee_rate : fee_rate,
