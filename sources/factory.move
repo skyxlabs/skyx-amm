@@ -9,8 +9,8 @@ module skyx_amm::factory {
     use skyx_amm::treasury::{ Treasury, new as new_treasury, appoint };
     use skyx_amm::pair::{ PairMetadata, get_lp_name, create_pair as init_pair, set_fee_rate as set_pair_fee_rate };
 
-    const ERR_ALREADY_EXIST_PAIR: u64 = 0;
-    const ERR_INCORRECT_ORDER: u64 = 1;
+    const ERR_ALREADY_EXIST_PAIR: u64 = 400;
+    const ERR_INCORRECT_ORDER: u64 = 401;
 
     const DEFAULT_FEE_RATE: u64 = 30; // 0.3%
 

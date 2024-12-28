@@ -9,12 +9,12 @@ module skyx_amm::pair {
     use skyx_amm::type_helper::get_type_name;
     use skyx_amm::treasury::{ Treasury, treasurer };
 
-    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 0;
-    const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 1;
-    const ERR_INSUFFICIENT_OUTPUT_AMOUNT: u64 = 2;
-    const ERR_K: u64 = 3;
-    const ERR_INSUFFICIENT_LIQUIDITY_MINT: u64 = 4;
-    const ERR_TOO_LARGE_FEE_RATE: u64 = 5;
+    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 400;
+    const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 401;
+    const ERR_INSUFFICIENT_OUTPUT_AMOUNT: u64 = 402;
+    const ERR_K: u64 = 403;
+    const ERR_INSUFFICIENT_LIQUIDITY_MINT: u64 = 404;
+    const ERR_TOO_LARGE_FEE_RATE: u64 = 405;
 
     const MAXIMUM_FEE_RATE: u64 = 10000;
     const MINIMUM_LIQUIDITY: u64 = 1000;

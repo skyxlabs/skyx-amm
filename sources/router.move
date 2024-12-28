@@ -31,12 +31,12 @@ module skyx_amm::router {
         } else {
             let amount_y_optimal = quote(amount_x_desired, reserve_x, reserve_y);
             let (_amount_x, _amount_y) = if (amount_y_optimal <= amount_y_desired) {
-                assert!(amount_y_optimal >= amount_y_min, 1);
+                assert!(amount_y_optimal >= amount_y_min, 401);
                 (amount_x_desired, amount_y_optimal)
             } else {
                 let amount_x_optimal = quote(amount_y_desired, reserve_y, reserve_x);
-                assert!(amount_x_optimal <= amount_x_desired, 3);
-                assert!(amount_x_optimal >= amount_x_min, 0);
+                assert!(amount_x_optimal <= amount_x_desired, 403);
+                assert!(amount_x_optimal >= amount_x_min, 400);
                 (amount_x_optimal, amount_y_desired)
             };
             (_amount_x, _amount_y)
@@ -52,7 +52,7 @@ module skyx_amm::router {
     }
     
     fun ensure(clock: &Clock, deadline: u64) {
-        assert!(deadline >= clock.timestamp_ms(), 4);
+        assert!(deadline >= clock.timestamp_ms(), 404);
     }
     
     public entry fun remove_liquidity<T0, T1>(clock: &Clock, cont: &mut Container, lpToken: Coin<LP<T0, T1>>, amount_x_min: u64, amount_y_min: u64, recipient: address, deadline: u64, ctx: &mut TxContext) {
@@ -61,8 +61,8 @@ module skyx_amm::router {
         let (coin_x, coin_y) = burn<T0, T1>(pair, treasury, lpToken, ctx);
         let _coin_y = coin_y;
         let _coin_x = coin_x;
-        assert!(_coin_x.value() >= amount_x_min, 0);
-        assert!(_coin_y.value() >= amount_y_min, 1);
+        assert!(_coin_x.value() >= amount_x_min, 400);
+        assert!(_coin_y.value() >= amount_y_min, 401);
         public_transfer<Coin<T0>>(_coin_x, recipient);
         public_transfer<Coin<T1>>(_coin_y, recipient);
     }
@@ -71,14 +71,14 @@ module skyx_amm::router {
         ensure(clock, deadline);
         let mut coin_out = swap_exact_input_direct<T0, T2>(cont, coin_in_0, ctx);
         join<T2>(&mut coin_out, swap_exact_input_direct<T1, T2>(cont, coin_in_1, ctx));
-        assert!(coin_out.value() >= amount_out_min, 5);
+        assert!(coin_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T2>>(coin_out, recipient);
     }
     
     public entry fun swap_exact_input<T0, T1>(clock: &Clock, cont: &mut Container, coin_in: Coin<T0>, amount_out_min: u64, recipient: address, deadline: u64, ctx: &mut TxContext) {
         ensure(clock, deadline);
         let coin_out = swap_exact_input_direct<T0, T1>(cont, coin_in, ctx);
-        assert!(coin_out.value() >= amount_out_min, 5);
+        assert!(coin_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T1>>(coin_out, recipient);
     }
     
@@ -94,11 +94,11 @@ module skyx_amm::router {
         ensure(clock, deadline);
 
         let coin_out_0 = swap_exact_input_direct<T0, T1>(cont, split(&mut coin_in, amount_in_0, ctx), ctx);
-        assert!(coin_out_0.value() >= amount_out_min_0, 5);
+        assert!(coin_out_0.value() >= amount_out_min_0, 405);
         public_transfer<Coin<T1>>(coin_out_0, recipient);
 
         let coin_out_1 = swap_exact_input_direct<T0, T2>(cont, split(&mut coin_in, amount_in_1, ctx), ctx);
-        assert!(coin_out_1.value() >= amount_out_min_1, 5);
+        assert!(coin_out_1.value() >= amount_out_min_1, 405);
         public_transfer<Coin<T2>>(coin_out_1, recipient);
 
         public_transfer<Coin<T0>>(coin_in, ctx.sender());
@@ -108,7 +108,7 @@ module skyx_amm::router {
         ensure(clock, deadline);
         let t = swap_exact_input_direct<T0, T1>(cont, coin_in, ctx);
         let coin_out = swap_exact_input_direct<T1, T2>(cont, t, ctx);
-        assert!(coin_out.value() >= amount_out_min, 5);
+        assert!(coin_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T2>>(coin_out, recipient);
     }
     
@@ -116,19 +116,19 @@ module skyx_amm::router {
         ensure(clock, deadline);
 
         let coin_out_0 = swap_exact_input_direct<T0, T1>(cont, split<T0>(&mut coin_in, amount_in_0, ctx), ctx);
-        assert!(coin_out_0.value() >= amount_out_min_0, 5);
+        assert!(coin_out_0.value() >= amount_out_min_0, 405);
         public_transfer<Coin<T1>>(coin_out_0, recipient);
 
         let coin_out_1 = swap_exact_input_direct<T0, T2>(cont, split<T0>(&mut coin_in, amount_in_1, ctx), ctx);
-        assert!(coin_out_1.value() >= amount_out_min_1, 5);
+        assert!(coin_out_1.value() >= amount_out_min_1, 405);
         public_transfer<Coin<T2>>(coin_out_1, recipient);
 
         let coin_out_2 = swap_exact_input_direct<T0, T3>(cont, split<T0>(&mut coin_in, amount_in_2, ctx), ctx);
-        assert!(coin_out_2.value() >= amount_out_min_2, 5);
+        assert!(coin_out_2.value() >= amount_out_min_2, 405);
         public_transfer<Coin<T3>>(coin_out_2, recipient);
 
         let coin_out_3 = swap_exact_input_direct<T0, T4>(cont, split<T0>(&mut coin_in, amount_in_3, ctx), ctx);
-        assert!(coin_out_3.value() >= amount_out_min_3, 5);
+        assert!(coin_out_3.value() >= amount_out_min_3, 405);
         public_transfer<Coin<T4>>(coin_out_3, recipient);
 
         public_transfer<Coin<T0>>(coin_in, ctx.sender());
@@ -138,23 +138,23 @@ module skyx_amm::router {
         ensure(clock, deadline);
 
         let coin_out_0 = swap_exact_input_direct<T0, T1>(cont, split<T0>(&mut coin_in, amount_in_0, ctx), ctx);
-        assert!(coin_out_0.value() >= amount_out_min_0, 5);
+        assert!(coin_out_0.value() >= amount_out_min_0, 405);
         public_transfer<Coin<T1>>(coin_out_0, recipient);
 
         let coin_out_1 = swap_exact_input_direct<T0, T2>(cont, split<T0>(&mut coin_in, amount_in_1, ctx), ctx);
-        assert!(coin_out_1.value() >= amount_out_min_1, 5);
+        assert!(coin_out_1.value() >= amount_out_min_1, 405);
         public_transfer<Coin<T2>>(coin_out_1, recipient);
 
         let coin_out_2 = swap_exact_input_direct<T0, T3>(cont, split<T0>(&mut coin_in, amount_in_2, ctx), ctx);
-        assert!(coin_out_2.value() >= amount_out_min_2, 5);
+        assert!(coin_out_2.value() >= amount_out_min_2, 405);
         public_transfer<Coin<T3>>(coin_out_2, recipient);
 
         let coin_out_3 = swap_exact_input_direct<T0, T4>(cont, split<T0>(&mut coin_in, amount_in_3, ctx), ctx);
-        assert!(coin_out_3.value() >= amount_out_min_3, 5);
+        assert!(coin_out_3.value() >= amount_out_min_3, 405);
         public_transfer<Coin<T4>>(coin_out_3, recipient);
 
         let coin_out_4 = swap_exact_input_direct<T0, T5>(cont, split<T0>(&mut coin_in, amount_in_4, ctx), ctx);
-        assert!(coin_out_4.value() >= amount_out_min_4, 5);
+        assert!(coin_out_4.value() >= amount_out_min_4, 405);
         public_transfer<Coin<T5>>(coin_out_4, recipient);
 
         public_transfer<Coin<T0>>(coin_in, ctx.sender());
@@ -164,15 +164,15 @@ module skyx_amm::router {
         ensure(clock, deadline);
 
         let coin_out_min_0 = swap_exact_input_direct<T0, T1>(cont, split<T0>(&mut coin_in, amount_in_0, ctx), ctx);
-        assert!(coin_out_min_0.value() >= amount_out_min_0, 5);
+        assert!(coin_out_min_0.value() >= amount_out_min_0, 405);
         public_transfer<Coin<T1>>(coin_out_min_0, recipient);
 
         let coin_out_min_1 = swap_exact_input_direct<T0, T2>(cont, split<T0>(&mut coin_in, amount_in_1, ctx), ctx);
-        assert!(coin_out_min_1.value() >= amount_out_min_1, 5);
+        assert!(coin_out_min_1.value() >= amount_out_min_1, 405);
         public_transfer<Coin<T2>>(coin_out_min_1, recipient);
 
         let coin_out_min_2 = swap_exact_input_direct<T0, T3>(cont, split<T0>(&mut coin_in, amount_in_2, ctx), ctx);
-        assert!(coin_out_min_2.value() >= amount_out_min_2, 5);
+        assert!(coin_out_min_2.value() >= amount_out_min_2, 405);
         public_transfer<Coin<T3>>(coin_out_min_2, recipient);
 
         public_transfer<Coin<T0>>(coin_in, ctx.sender());
@@ -183,7 +183,7 @@ module skyx_amm::router {
         let t0 = swap_exact_input_direct<T0, T1>(cont, coin_in, ctx);
         let t1 = swap_exact_input_direct<T1, T2>(cont, t0, ctx);
         let coin_out = swap_exact_input_direct<T2, T3>(cont, t1, ctx);
-        assert!(coin_out.value() >= amount_out_min, 5);
+        assert!(coin_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T3>>(coin_out, recipient);
     }
     
@@ -258,7 +258,7 @@ module skyx_amm::router {
         join<T4>(&mut amount_out, swap_exact_input_direct<T1, T4>(cont, coin_in_1, ctx));
         join<T4>(&mut amount_out, swap_exact_input_direct<T2, T4>(cont, coin_in_2, ctx));
         join<T4>(&mut amount_out, swap_exact_input_direct<T3, T4>(cont, coin_in_3, ctx));
-        assert!(amount_out.value() >= amount_out_min, 5);
+        assert!(amount_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T4>>(amount_out, recipient);
     }
     
@@ -269,7 +269,7 @@ module skyx_amm::router {
         join<T5>(&mut amount_out, swap_exact_input_direct<T2, T5>(cont, coin_in_2, ctx));
         join<T5>(&mut amount_out, swap_exact_input_direct<T3, T5>(cont, coin_in_3, ctx));
         join<T5>(&mut amount_out, swap_exact_input_direct<T4, T5>(cont, coin_in_4, ctx));
-        assert!(amount_out.value() >= amount_out_min, 5);
+        assert!(amount_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T5>>(amount_out, recipient);
     }
     
@@ -278,7 +278,7 @@ module skyx_amm::router {
         let mut amount_out = swap_exact_input_direct<T0, T3>(cont, coin_in_0, ctx);
         join<T3>(&mut amount_out, swap_exact_input_direct<T1, T3>(cont, coin_in_1, ctx));
         join<T3>(&mut amount_out, swap_exact_input_direct<T2, T3>(cont, coin_in_2, ctx));
-        assert!(amount_out.value() >= amount_out_min, 5);
+        assert!(amount_out.value() >= amount_out_min, 405);
         public_transfer<Coin<T3>>(amount_out, recipient);
     }
     
@@ -289,7 +289,7 @@ module skyx_amm::router {
         let (coin_x_out, coin_y_out) = swap<T0, T1>(pair, coin_x, 0, zero<T1>(ctx), get_amount_out(amount_in, reserve_x, reserve_y, fee_rate), ctx);
         let _coin_y_out = coin_y_out;
         let _coin_x_out = coin_x_out;
-        assert!(_coin_x_out.value() == 0 && _coin_y_out.value() > 0, 5);
+        assert!(_coin_x_out.value() == 0 && _coin_y_out.value() > 0, 405);
         _coin_x_out.destroy_zero();
         _coin_y_out
     }
@@ -300,7 +300,7 @@ module skyx_amm::router {
         let (coin_x_out, coin_y_out) = swap<T0, T1>(pair, zero<T0>(ctx), get_amount_out(coin_y.value(), reserve_y, reserve_x, fee_rate), coin_y, 0, ctx);
         let _coin_y_out = coin_y_out;
         let _coin_x_out = coin_x_out;
-        assert!(_coin_y_out.value() == 0 && _coin_x_out.value() > 0, 5);
+        assert!(_coin_y_out.value() == 0 && _coin_x_out.value() > 0, 405);
         _coin_y_out.destroy_zero();
         _coin_x_out
     }
@@ -310,14 +310,14 @@ module skyx_amm::router {
         let balance_x = coin_x.value();
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         let amount_x_in = get_amount_in(amount_y_out, reserve_x, reserve_y, fee_rate<T0, T1>(pair));
-        assert!(amount_x_in <= balance_x, 6);
+        assert!(amount_x_in <= balance_x, 406);
         if (balance_x > amount_x_in) {
             public_transfer<Coin<T0>>(split<T0>(&mut coin_x, balance_x - amount_x_in, ctx), ctx.sender());
         };
         let (coin_x_out, coin_y_out) = swap<T0, T1>(pair, coin_x, 0, zero<T1>(ctx), amount_y_out, ctx);
         let _coin_y_out = coin_y_out;
         let _coin_x_out = coin_x_out;
-        assert!(_coin_x_out.value() == 0 && _coin_y_out.value() > 0, 5);
+        assert!(_coin_x_out.value() == 0 && _coin_y_out.value() > 0, 405);
         _coin_x_out.destroy_zero();
         _coin_y_out
     }
@@ -327,14 +327,14 @@ module skyx_amm::router {
         let balance_y = coin_y.value();
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         let amount_y_in = get_amount_in(amount_x_out, reserve_y, reserve_x, fee_rate<T0, T1>(pair));
-        assert!(amount_y_in <= balance_y, 6);
+        assert!(amount_y_in <= balance_y, 406);
         if (balance_y > amount_y_in) {
             public_transfer<Coin<T1>>(split<T1>(&mut coin_y, balance_y - amount_y_in, ctx), ctx.sender());
         };
         let (coin_x_out, coin_y_out) = swap<T0, T1>(pair, zero<T0>(ctx), amount_x_out, coin_y, 0, ctx);
         let _coin_y_out = coin_y_out;
         let _coin_x_out = coin_x_out;
-        assert!(_coin_y_out.value() == 0 && _coin_x_out.value() > 0, 5);
+        assert!(_coin_y_out.value() == 0 && _coin_x_out.value() > 0, 405);
         _coin_y_out.destroy_zero();
         _coin_x_out
     }

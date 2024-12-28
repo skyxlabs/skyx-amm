@@ -4,10 +4,10 @@ module skyx_amm::swap_utils {
     use sui::coin::Coin;
     use skyx_amm::comparator::{ compare_u8_vector, is_equal, is_smaller_than };
 
-    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 0;
-    const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 1;
-    const ERR_INSUFFICIENT_OUTPUT_AMOUNT: u64 = 2;
-    const ERR_IDENTICAL_TOKENS: u64 = 3;
+    const ERR_INSUFFICIENT_LIQUIDITY: u64 = 400;
+    const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 401;
+    const ERR_INSUFFICIENT_OUTPUT_AMOUNT: u64 = 402;
+    const ERR_IDENTICAL_TOKENS: u64 = 403;
 
     public fun get_amount_in(
         amount_out: u64,
