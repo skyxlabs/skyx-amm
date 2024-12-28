@@ -204,10 +204,8 @@ module skyx_amm::pair {
         pair.fee_rate
     }
     
-    native fun borrow_uid<T: key>(obj: &T): &UID;
-
     public fun pair_id<T0, T1>(pair: &PairMetadata<T0, T1>) : address {
-        borrow_uid<PairMetadata<T0, T1>>(pair).to_address()
+        pair.id.to_address()
     }
     
     public fun get_lp_name<T0, T1>() : String {
