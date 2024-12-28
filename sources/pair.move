@@ -1,9 +1,13 @@
 module skyx_amm::pair {
-    use std::string;
-    use std::u128;
-    use sui::coin;
-    use sui::balance;
-    use sui::event;
+    use std::string::{ utf8, String };
+    use std::u128::{ min, sqrt };
+    use sui::object::{ new as new_object };
+    use sui::coin::{ Coin, from_balance, zero };
+    use sui::balance::{ Supply, create_supply };
+    use sui::transfer::public_transfer;
+    use sui::event::emit;
+    use skyx_amm::type_helper::get_type_name;
+    use skyx_amm::treasury::{ Treasury, treasurer };
 
     const ERR_INSUFFICIENT_LIQUIDITY: u64 = 0;
     const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 1;
@@ -21,11 +25,11 @@ module skyx_amm::pair {
     
     #[allow(lint(coin_field))]
     public struct PairMetadata<phantom T0, phantom T1> has store, key {
-        id: object::UID,
-        reserve_x: coin::Coin<T0>,
-        reserve_y: coin::Coin<T1>,
+        id: UID,
+        reserve_x: Coin<T0>,
+        reserve_y: Coin<T1>,
         k_last: u128,
-        lp_supply: balance::Supply<LP<T0, T1>>,
+        lp_supply: Supply<LP<T0, T1>>,
         creator_liquidity: u64, // only for tracking data
         acc_x_fee_for_creator: u64, // only for tracking data
         acc_y_fee_for_creator: u64, // only for tracking data
@@ -34,9 +38,9 @@ module skyx_amm::pair {
     
     public struct LiquidityAdded has copy, drop {
         user: address,
-        pair: ID, 
-        coin_x: string::String,
-        coin_y: string::String,
+        pair: address, 
+        coin_x: String,
+        coin_y: String,
         amount_x: u64,
         amount_y: u64,
         liquidity: u64,
@@ -45,9 +49,9 @@ module skyx_amm::pair {
     
     public struct LiquidityRemoved has copy, drop {
         user: address,
-        pair: ID,
-        coin_x: string::String,
-        coin_y: string::String,
+        pair: address,
+        coin_x: String,
+        coin_y: String,
         amount_x: u64,
         amount_y: u64,
         liquidity: u64,
@@ -56,9 +60,9 @@ module skyx_amm::pair {
     
     public struct Swapped has copy, drop {
         user: address,
-        pair: ID,
-        coin_x: string::String,
-        coin_y: string::String,
+        pair: address,
+        coin_x: String,
+        coin_y: String,
         amount_x_in: u64,
         amount_y_in: u64,
         amount_x_out: u64,
@@ -66,9 +70,9 @@ module skyx_amm::pair {
     }
     
     public struct FeeForCreatorAdded has copy, drop {
-        pair: ID,
-        coin_x: string::String,
-        coin_y: string::String,
+        pair: address,
+        coin_x: String,
+        coin_y: String,
         added_x_fee_for_creator: u64,
         added_y_fee_for_creator: u64,
     }
@@ -88,22 +92,22 @@ module skyx_amm::pair {
 
         let add_fee_for_creator_event = FeeForCreatorAdded{
             pair: pair.pair_id(),
-            coin_x: skyx_amm::type_helper::get_type_name<T0>(),
-            coin_y: skyx_amm::type_helper::get_type_name<T1>(),
+            coin_x: get_type_name<T0>(),
+            coin_y: get_type_name<T1>(),
             added_x_fee_for_creator: added_x_fee_for_creator,
             added_y_fee_for_creator: added_y_fee_for_creator,
         };
-        event::emit<FeeForCreatorAdded>(add_fee_for_creator_event)
+        emit<FeeForCreatorAdded>(add_fee_for_creator_event)
     }
     
     public fun swap<T0, T1>(
         pair: &mut PairMetadata<T0, T1>,
-        coin_x_in: coin::Coin<T0>,
+        coin_x_in: Coin<T0>,
         amount_x_out: u64,
-        coin_y_in: coin::Coin<T1>,
+        coin_y_in: Coin<T1>,
         amount_y_out: u64,
-        ctx: &mut tx_context::TxContext
-    ) : (coin::Coin<T0>, coin::Coin<T1>) {
+        ctx: &mut TxContext
+    ) : (Coin<T0>, Coin<T1>) {
         assert!(amount_x_out > 0 || amount_y_out > 0, ERR_INSUFFICIENT_OUTPUT_AMOUNT);
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         assert!(amount_x_out < reserve_x && amount_y_out < reserve_y, ERR_INSUFFICIENT_LIQUIDITY);
@@ -121,23 +125,23 @@ module skyx_amm::pair {
         let swap_event = Swapped{
             user         : ctx.sender(), 
             pair         : pair.pair_id(),
-            coin_x       : skyx_amm::type_helper::get_type_name<T0>(), 
-            coin_y       : skyx_amm::type_helper::get_type_name<T1>(), 
+            coin_x       : get_type_name<T0>(), 
+            coin_y       : get_type_name<T1>(), 
             amount_x_in  : amount_x_in, 
             amount_y_in  : amount_y_in, 
             amount_x_out : amount_x_out, 
             amount_y_out : amount_y_out,
         };
-        event::emit<Swapped>(swap_event);
+        emit<Swapped>(swap_event);
         (extract_x<T0, T1>(pair, amount_x_out, ctx), extract_y<T0, T1>(pair, amount_y_out, ctx))
     }
     
     public fun burn<T0, T1>(
         pair: &mut PairMetadata<T0, T1>,
-        treasury: &skyx_amm::treasury::Treasury,
-        lp_token: coin::Coin<LP<T0, T1>>,
-        ctx: &mut tx_context::TxContext
-    ) : (coin::Coin<T0>, coin::Coin<T1>) {
+        treasury: &Treasury,
+        lp_token: Coin<LP<T0, T1>>,
+        ctx: &mut TxContext
+    ) : (Coin<T0>, Coin<T1>) {
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         let liquidity = lp_token.value();
         let total_supply = total_lp_supply<T0, T1>(pair) as u128;
@@ -149,50 +153,50 @@ module skyx_amm::pair {
         let liquidity_removed_event = LiquidityRemoved{
             user      : ctx.sender(), 
             pair      : pair.pair_id(),
-            coin_x    : skyx_amm::type_helper::get_type_name<T0>(), 
-            coin_y    : skyx_amm::type_helper::get_type_name<T1>(), 
+            coin_x    : get_type_name<T0>(), 
+            coin_y    : get_type_name<T1>(), 
             amount_x  : amount_x, 
             amount_y  : amount_y, 
             liquidity : liquidity, 
-            fee       : mint_fee<T0, T1>(pair, skyx_amm::treasury::treasurer(treasury), ctx),
+            fee       : mint_fee<T0, T1>(pair, treasurer(treasury), ctx),
         };
-        event::emit<LiquidityRemoved>(liquidity_removed_event);
+        emit<LiquidityRemoved>(liquidity_removed_event);
         (extract_x<T0, T1>(pair, amount_x, ctx), extract_y<T0, T1>(pair, amount_y, ctx))
     }
     
-    fun burn_lp<T0, T1>(pair: &mut PairMetadata<T0, T1>, lp_token: coin::Coin<LP<T0, T1>>) {
+    fun burn_lp<T0, T1>(pair: &mut PairMetadata<T0, T1>, lp_token: Coin<LP<T0, T1>>) {
         pair.lp_supply.decrease_supply<LP<T0, T1>>(lp_token.into_balance<LP<T0, T1>>());
     }
     
-    public(package) fun create_pair<T0, T1>(ctx: &mut tx_context::TxContext) : (ID, PairMetadata<T0, T1>) {
+    public(package) fun create_pair<T0, T1>(ctx: &mut TxContext) : (address, PairMetadata<T0, T1>) {
         let lp_token = LP<T0, T1>{dummy_field: false};
         let pair_metadata = PairMetadata<T0, T1>{
-            id        : object::new(ctx), 
-            reserve_x : coin::zero<T0>(ctx), 
-            reserve_y : coin::zero<T1>(ctx), 
+            id        : new_object(ctx), 
+            reserve_x : zero<T0>(ctx), 
+            reserve_y : zero<T1>(ctx), 
             k_last    : 0, 
-            lp_supply : balance::create_supply<LP<T0, T1>>(lp_token),
+            lp_supply : create_supply<LP<T0, T1>>(lp_token),
             creator_liquidity: 0,
             acc_x_fee_for_creator: 0,
             acc_y_fee_for_creator: 0,
             fee_rate  : 0,
         };
-        (object::id(&pair_metadata), pair_metadata)
+        (pair_id(&pair_metadata), pair_metadata)
     }
     
-    fun deposit_x<T0, T1>(pair: &mut PairMetadata<T0, T1>, coin_x_in: coin::Coin<T0>) {
+    fun deposit_x<T0, T1>(pair: &mut PairMetadata<T0, T1>, coin_x_in: Coin<T0>) {
         pair.reserve_x.join(coin_x_in);
     }
     
-    fun deposit_y<T0, T1>(pair: &mut PairMetadata<T0, T1>, coin_y_in: coin::Coin<T1>) {
+    fun deposit_y<T0, T1>(pair: &mut PairMetadata<T0, T1>, coin_y_in: Coin<T1>) {
         pair.reserve_y.join(coin_y_in);
     }
     
-    fun extract_x<T0, T1>(pair: &mut PairMetadata<T0, T1>, amount_x_out: u64, ctx: &mut tx_context::TxContext) : coin::Coin<T0> {
+    fun extract_x<T0, T1>(pair: &mut PairMetadata<T0, T1>, amount_x_out: u64, ctx: &mut TxContext) : Coin<T0> {
         pair.reserve_x.split(amount_x_out, ctx)
     }
     
-    fun extract_y<T0, T1>(pair: &mut PairMetadata<T0, T1>, amount_y_out: u64, ctx: &mut tx_context::TxContext) : coin::Coin<T1> {
+    fun extract_y<T0, T1>(pair: &mut PairMetadata<T0, T1>, amount_y_out: u64, ctx: &mut TxContext) : Coin<T1> {
         pair.reserve_y.split(amount_y_out, ctx)
     }
     
@@ -200,15 +204,17 @@ module skyx_amm::pair {
         pair.fee_rate
     }
     
-    public fun pair_id<T0, T1>(pair: &PairMetadata<T0, T1>) : ID {
-        object::id(pair)
+    native fun borrow_uid<T: key>(obj: &T): &UID;
+
+    public fun pair_id<T0, T1>(pair: &PairMetadata<T0, T1>) : address {
+        borrow_uid<PairMetadata<T0, T1>>(pair).to_address()
     }
     
-    public fun get_lp_name<T0, T1>() : string::String {
-        let mut lp_name = string::utf8(b"SkyX LP-");
-        lp_name.append(skyx_amm::type_helper::get_type_name<T0>());
+    public fun get_lp_name<T0, T1>() : String {
+        let mut lp_name = utf8(b"SkyX LP-");
+        lp_name.append(get_type_name<T0>());
         lp_name.append_utf8(b"-");
-        lp_name.append(skyx_amm::type_helper::get_type_name<T1>());
+        lp_name.append(get_type_name<T1>());
         lp_name
     }
     
@@ -226,22 +232,22 @@ module skyx_amm::pair {
     
     public fun mint<T0, T1>(
         pair: &mut PairMetadata<T0, T1>,
-        treasury: &skyx_amm::treasury::Treasury,
-        coin_x: coin::Coin<T0>,
-        coin_y: coin::Coin<T1>,
-        ctx: &mut tx_context::TxContext
-    ) : coin::Coin<LP<T0, T1>> {
+        treasury: &Treasury,
+        coin_x: Coin<T0>,
+        coin_y: Coin<T1>,
+        ctx: &mut TxContext
+    ) : Coin<LP<T0, T1>> {
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         let amount_x = coin_x.value();
         let amount_y = coin_y.value();
         let total_supply = total_lp_supply<T0, T1>(pair) as u128;
         let liquidity = if (total_supply == 0) {
-            let _liquidity = u128::sqrt((amount_x as u128) * (amount_y as u128));
+            let _liquidity = sqrt((amount_x as u128) * (amount_y as u128));
             assert!(_liquidity > (MINIMUM_LIQUIDITY as u128), ERR_INSUFFICIENT_INPUT_AMOUNT);
-            transfer::public_transfer<coin::Coin<LP<T0, T1>>>(mint_lp<T0, T1>(pair, MINIMUM_LIQUIDITY, ctx), @0x0);
+            public_transfer<Coin<LP<T0, T1>>>(mint_lp<T0, T1>(pair, MINIMUM_LIQUIDITY, ctx), @0x0);
             (_liquidity - (MINIMUM_LIQUIDITY as u128)) as u64
         } else {
-            u128::min((amount_x as u128) * total_supply / (reserve_x as u128), (amount_y as u128) * total_supply / (reserve_y as u128)) as u64
+            min((amount_x as u128) * total_supply / (reserve_x as u128), (amount_y as u128) * total_supply / (reserve_y as u128)) as u64
         };
         assert!(liquidity > 0, ERR_INSUFFICIENT_LIQUIDITY_MINT);
         deposit_x<T0, T1>(pair, coin_x);
@@ -251,33 +257,33 @@ module skyx_amm::pair {
         let liquidity_added_event = LiquidityAdded{
             user      : ctx.sender(), 
             pair      : pair.pair_id(),
-            coin_x    : skyx_amm::type_helper::get_type_name<T0>(), 
-            coin_y    : skyx_amm::type_helper::get_type_name<T1>(), 
+            coin_x    : get_type_name<T0>(), 
+            coin_y    : get_type_name<T1>(), 
             amount_x  : amount_x, 
             amount_y  : amount_y, 
             liquidity : liquidity, 
-            fee       : mint_fee<T0, T1>(pair, skyx_amm::treasury::treasurer(treasury), ctx),
+            fee       : mint_fee<T0, T1>(pair, treasurer(treasury), ctx),
         };
-        event::emit<LiquidityAdded>(liquidity_added_event);
+        emit<LiquidityAdded>(liquidity_added_event);
         mint_lp<T0, T1>(pair, liquidity, ctx)
     }
     
     fun mint_fee<T0, T1>(
         pair: &mut PairMetadata<T0, T1>,
         fee_to: address,
-        ctx: &mut tx_context::TxContext
+        ctx: &mut TxContext
     ) : u64 {
         let mut minted_fee = 0;
         let (reserve_x, reserve_y) = get_reserves<T0, T1>(pair);
         if (fee_to != @0x0) {
             if (pair.k_last != 0) {
-                let root_k = u128::sqrt((reserve_x as u128) * (reserve_y as u128));
-                let root_k_last = u128::sqrt(pair.k_last);
+                let root_k = sqrt((reserve_x as u128) * (reserve_y as u128));
+                let root_k_last = sqrt(pair.k_last);
                 if (root_k > root_k_last) {
                     let _minted_fee = ((total_lp_supply<T0, T1>(pair) as u128) * (root_k - root_k_last) / (root_k * 5 + root_k_last)) as u64; // 1/6 fee
                     minted_fee = _minted_fee;
                     if (_minted_fee > 0) {
-                        transfer::public_transfer<coin::Coin<LP<T0, T1>>>(mint_lp<T0, T1>(pair, _minted_fee, ctx), fee_to);
+                        public_transfer<Coin<LP<T0, T1>>>(mint_lp<T0, T1>(pair, _minted_fee, ctx), fee_to);
                     };
                 };
             };
@@ -288,9 +294,9 @@ module skyx_amm::pair {
     fun mint_lp<T0, T1>(
         pair: &mut PairMetadata<T0, T1>,
         amount: u64,
-        ctx: &mut tx_context::TxContext
-    ) : coin::Coin<LP<T0, T1>> {
-        coin::from_balance<LP<T0, T1>>(pair.lp_supply.increase_supply<LP<T0, T1>>(amount), ctx)
+        ctx: &mut TxContext
+    ) : Coin<LP<T0, T1>> {
+        from_balance<LP<T0, T1>>(pair.lp_supply.increase_supply<LP<T0, T1>>(amount), ctx)
     }
     
     public(package) fun set_fee_rate<T0, T1>(pair: &mut PairMetadata<T0, T1>, fee_rate: u64) {

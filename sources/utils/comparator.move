@@ -1,5 +1,5 @@
 module skyx_amm::comparator {
-    use std::bcs;
+    use std::bcs::to_bytes;
 
     const EQUAL: u8 = 0;
     const SMALLER: u8 = 1;
@@ -11,8 +11,8 @@ module skyx_amm::comparator {
 
     public fun compare<T>(left: &T, right: &T): Result {
         compare_u8_vector(
-            bcs::to_bytes<T>(left),
-            bcs::to_bytes<T>(right)
+            to_bytes<T>(left),
+            to_bytes<T>(right)
         )
     }
 
@@ -53,11 +53,11 @@ module skyx_amm::comparator {
 
     #[test]
     public fun test_strings() {
-        use std::string;
+        use std::string::utf8;
 
-        let value0 = string::utf8(b"alpha");
-        let value1 = string::utf8(b"beta");
-        let value2 = string::utf8(b"betaa");
+        let value0 = utf8(b"alpha");
+        let value1 = utf8(b"beta");
+        let value2 = utf8(b"betaa");
 
         assert!(
             is_equal(&compare(&value0, &value0)),
@@ -182,16 +182,18 @@ module skyx_amm::comparator {
 
     #[test]
     public fun test_complex() {
-        let mut value0_0 = vector::empty();
-        vector::push_back(&mut value0_0, 10);
-        vector::push_back(&mut value0_0, 9);
-        vector::push_back(&mut value0_0, 5);
+        use std::vector::{ empty, push_back };
 
-        let mut value0_1 = vector::empty();
-        vector::push_back(&mut value0_1, 10);
-        vector::push_back(&mut value0_1, 9);
-        vector::push_back(&mut value0_1, 5);
-        vector::push_back(&mut value0_1, 1);
+        let mut value0_0 = empty();
+        push_back(&mut value0_0, 10);
+        push_back(&mut value0_0, 9);
+        push_back(&mut value0_0, 5);
+
+        let mut value0_1 = empty();
+        push_back(&mut value0_1, 10);
+        push_back(&mut value0_1, 9);
+        push_back(&mut value0_1, 5);
+        push_back(&mut value0_1, 1);
 
         let base = Complex {
             value0: value0_0,

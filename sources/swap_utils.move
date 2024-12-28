@@ -1,7 +1,8 @@
 module skyx_amm::swap_utils {
-    use std::ascii;
-    use std::type_name;
-    use sui::coin;
+    use std::ascii::into_bytes;
+    use std::type_name::{ get, into_string };
+    use sui::coin::Coin;
+    use skyx_amm::comparator::{ compare_u8_vector, is_equal, is_smaller_than };
 
     const ERR_INSUFFICIENT_LIQUIDITY: u64 = 0;
     const ERR_INSUFFICIENT_INPUT_AMOUNT: u64 = 1;
@@ -32,12 +33,12 @@ module skyx_amm::swap_utils {
     }
     
     public fun is_ordered<T0, T1>() : bool {
-        let result = skyx_amm::comparator::compare_u8_vector(ascii::into_bytes(type_name::into_string(type_name::get<T0>())), ascii::into_bytes(type_name::into_string(type_name::get<T1>())));
-        assert!(!skyx_amm::comparator::is_equal(&result), ERR_IDENTICAL_TOKENS);
-        skyx_amm::comparator::is_smaller_than(&result)
+        let result = compare_u8_vector(into_bytes(into_string(get<T0>())), into_bytes(into_string(get<T1>())));
+        assert!(!is_equal(&result), ERR_IDENTICAL_TOKENS);
+        is_smaller_than(&result)
     }
     
-    public fun left_amount<T>(reserve: &coin::Coin<T>, amount_out: u64) : u64 {
+    public fun left_amount<T>(reserve: &Coin<T>, amount_out: u64) : u64 {
         assert!(reserve.value() >= amount_out, ERR_INSUFFICIENT_LIQUIDITY);
         reserve.value() - amount_out
     }
